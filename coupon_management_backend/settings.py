@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ SECRET_KEY = 'django-insecure-pq=rr05zvb$^ljcv-z%cqh(r&0f6b%v-@ybl=i57bxvn^ui%mg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["192.168.2.145","chcanimalhealth.in","*","51.20.1.78"]
+ALLOWED_HOSTS = ["13.61.4.68","chcanimalhealth.in","*"]
 
 #EMAIL SETTINGS
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -95,7 +96,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'coupon_management_backend.wsgi.application'
+WSGI_APPLICATION = 'coupon_management_backend.wsgi.application' 
 
 
 # Database
@@ -156,6 +157,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -336,8 +340,8 @@ JAZZMIN_UI_TWEAKS = {
 
 
 
-AWS_ACCESS_KEY_ID = 'AKIAWIJIULG7AFFDS7IA'
-AWS_SECRET_ACCESS_KEY = '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'
+AWS_ACCESS_KEY_ID = 'AKIAWIJIULG7NVIRAGEA'
+AWS_SECRET_ACCESS_KEY = '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'
 AWS_STORAGE_BUCKET_NAME = 'coupon-management-backend'
 AWS_S3_SIGNATURE_NAME = 's3v4',
 AWS_S3_REGION_NAME = 'eu-north-1'
