@@ -99,11 +99,11 @@ WSGI_APPLICATION = 'coupon_management_backend.wsgi.application'
 DATABASES = {
    'default': {
        'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'coupon_management_db',
-       'USER': 'postgres',
-       'PASSWORD': 'postgres',
-       'HOST': '127.0.0.1',
-       'PORT': '5433',
+       'NAME': 'coupon_management_backend',
+       'USER': 'mysuperuser',
+       'PASSWORD': 'mysuperuser',
+       'HOST': 'coupon-management-backend-database.czycmuqk6t0c.eu-north-1.rds.amazonaws.com',
+       'PORT': '5432',
    }
 }
 
