@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "manager_app",
     'rest_framework',
     'rest_framework.authtoken',
+
+    'whitenoise.runserver_nostatic' #static content loading
     
 
     
@@ -65,11 +67,14 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', #dded by Onkar for static conent 
     'django.middleware.common.CommonMiddleware',
     #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    
 ]
 
 ROOT_URLCONF = 'coupon_management_backend.urls'
@@ -328,3 +333,15 @@ JAZZMIN_UI_TWEAKS = {
     },
     "actions_sticky_top": True
 }
+
+
+
+AWS_ACCESS_KEY_ID = 'AKIAWIJIULG7AFFDS7IA'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_STORAGE_BUCKET_NAME = 'coupon-management-backend'
+AWS_S3_SIGNATURE_NAME = 's3v4',
+AWS_S3_REGION_NAME = 'eu-north-1'
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL =  None
+AWS_S3_VERITY = True
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
