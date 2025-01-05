@@ -174,7 +174,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://chcanimalhealth.in/',  # Add your domain here
+    'https://chcanimalhealth.in',  # Add your domain here
     'https://www.chcanimalhealth.in',  # Include www if applicable
 ]
 
