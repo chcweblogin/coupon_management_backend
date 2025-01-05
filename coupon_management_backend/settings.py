@@ -39,7 +39,7 @@ EMAIL_HOST_PASSWORD = 'Pratik#123'
 
 # Application definition
 INSTALLED_APPS = [
-    #'jazzmin',  #
+    'jazzmin',  #
     "django_light",
    'django_nvd3',
     'django.contrib.humanize',
