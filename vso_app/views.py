@@ -586,7 +586,7 @@ class SettlementAPIView(APIView):
 
         # Filter by doctor_id if provided
         if doctor_id:
-            queryset = queryset.filter(doctor_id=doctor_id, points_settled_value__gt=0).exclude(product_name="Gift Product").order_by("-date_settled", "-time_settled")
+            queryset = queryset.filter(doctor_id=doctor_id, points_settled_value__gt=0).exclude(product__name="Gift Product").order_by("-date_settled", "-time_settled")
             
             # Apply count-based slicing
             if queryset.count() >= count + 1:
@@ -888,7 +888,7 @@ class GiftSettledAPIViewSet(APIView):
             queryset = Settlement.objects.filter(
                 doctor_id=doctor_id, 
                 points_settled_value__gt=0,
-                product_name="Gift Product"
+                product__name="Gift Product"
             ).order_by("-date_settled", "-time_settled")
 
             # Check if the queryset count is greater than the required count
