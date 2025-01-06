@@ -1015,7 +1015,7 @@ class CouponRedeemViewSet(viewsets.ModelViewSet):
             serializer_data = CouponSerializer(coupons, many=True).data
 
 
-            if(product_id_settled!=1):
+            if(settled_product.name!="Gift Product"):
                     # Get the VSOProductStock record for the specific VSO and product
                     vso_product_stock = VSOProductStock.objects.get(vso_id=vso_id, product_id=product_id_settled)
 
