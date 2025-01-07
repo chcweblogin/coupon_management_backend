@@ -1121,7 +1121,7 @@ class CouponRedeemViewSet(viewsets.ModelViewSet):
             )
 
 
-            if(product_id_settled=="Gift Product"):
+            if(settled_product.name=="Gift Product"):
                 gifts=Gifts.objects.create(
                     gift_name=gift_name,
                     gift_price=gift_price,
