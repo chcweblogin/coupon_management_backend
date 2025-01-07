@@ -1602,7 +1602,7 @@ class DoctorLastUpdate(APIView):
         # Calculate collected points cost for the latest date
         collected_points_cost = TransactionDetail.objects.filter(
             transaction__date_transaction=latest_date,
-            transaction__status=latest_coupon.status,
+            transaction__status="collected",
             transaction__doctor_id=latest_coupon.doctor
         ).annotate(
             product_cost=F("transaction__total_points_used") * F("product__coupon_value")
