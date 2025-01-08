@@ -1616,6 +1616,18 @@ class DoctorLastUpdate(APIView):
             date_settled=latest_date
         ).aggregate(total_redeemed_cost=Sum("points_settled_value"))['total_redeemed_cost'] or 0
 
+        # Calculate total points repaid for a specific doctor on a particular date
+        total_repaid_points = CreditRepaymentDetail.objects.filter(
+            repayment__credit__doctor=doctor_id,  # Filter by doctor ID through the repayment relationship
+            repayment__date_repaid=latest_date  # Filter by settlement date through the repayment relationship
+        ).aggregate(total_points_repaid=Sum('points_repaid'))['total_points_repaid'] or 0
+
+
+
+
+
+
+
         # Initialize previous remaining points
         total_coupons_value = 0
         if previous_date:
@@ -1648,7 +1660,7 @@ class DoctorLastUpdate(APIView):
             },
             'transaction_summary': {
                 'total_collected_points_cost': collected_points_cost,
-                'total_redeemed_points_cost': redeemed_points_cost,
+                'total_redeemed_points_cost': redeemed_points_cost + total_repaid_points,
                 'total_coupon_points': total_coupons_value  # Returning previous remaining points here
             }
         }
