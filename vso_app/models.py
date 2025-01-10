@@ -144,14 +144,12 @@ class DoctorCredit(models.Model):
     repay_status = models.BooleanField(default=False)  # Indicates if the credit is fully repaid
     date_issued = models.DateField(auto_now_add=True)
     date_repaid = models.DateField(null=True, blank=True)  # Optional, updated when fully repaid
+    outstanding_points=models.IntegerField(default=0)
 
     def __str__(self):
         return f"Doctor: {self.doctor.name}, Product: {self.product.name}, Borrowed: {self.borrowed_points}"
 
-    @property
-    def outstanding_points(self):
-        """Returns the remaining points to be repaid."""
-        return self.borrowed_points - self.repaid_points
+    
 
     @classmethod
     def borrow_limit(cls, doctor):

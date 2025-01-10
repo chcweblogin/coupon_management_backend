@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.db.models import Q
 import json
 from django.db.models import Max
+from django.db import transaction
 from django.conf import settings
 from django.shortcuts import get_object_or_404, render
 from rest_framework import generics
@@ -421,8 +422,29 @@ class CouponListCreate(APIView):
                     quantity_redeemed=1,
                 )
 
+
+                try:
+                    # Bonus point calculation
+                    bonus_points_for_product = coupon * (product.bonus_points or 0)
+                    print(f"Calculated bonus points: {bonus_points_for_product}")
+
+                    # Validate manager
+                    manager = vso.manager
+                    if not manager:
+                        print("VSO does not have an associated manager.")
+                        raise ValueError("VSO does not have an associated manager.")
+
+                    # Update or create bonus record
+                    with db_transaction.atomic():
+                        bonus_record, created = BonusRecords.objects.get_or_create(manager=manager)
+                        bonus_record.current_bonus_points = bonus_record.current_bonus_points +  bonus_points_for_product
+                        bonus_record.save()
+                        print("Bonus record updated successfully.")
+                except Exception as e:
+                    print(f"Error updating bonus record: {e}")
+
                 # Add coupon record
-                coupon = Coupon.objects.create(
+                coupon_ = Coupon.objects.create(
                     doctor=doctor,
                     vso=vso,
                     product=product,
@@ -432,13 +454,16 @@ class CouponListCreate(APIView):
                     transaction=transaction,
                 )
 
+                
+
+
                 return Response(
                     {
-                        "couponPoints": coupon.coupon_points,
-                        "status": coupon.status,
-                        "vso": coupon.vso.vso_id if coupon.vso else None,
-                        "doctor": coupon.doctor.doctor_id,
-                        "product": coupon.product.product_id if coupon.product else None,
+                        "couponPoints": coupon_.coupon_points,
+                        "status": coupon_.status,
+                        "vso": coupon_.vso.vso_id if coupon_.vso else None,
+                        "doctor": coupon_.doctor.doctor_id,
+                        "product": coupon_.product.product_id if coupon_.product else None,
                     },
                     status=status.HTTP_201_CREATED,
                 )
@@ -718,132 +743,140 @@ class CreditsAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     
+
     
+
 
     def post(self, request, *args, **kwargs):
         try:
-            # Extract data from the request
+            # Debug: Log incoming request data
+            print("Incoming data:", request.data)
+            
             doctor_id = request.data.get('doctor_id')
             vso_id = request.data.get('vso_id')
-            details = request.data.get('details', [])  # List of products and points used for repayment
-            selectedList = request.data.get('selectedList', [])  # List of selected credit IDs
-            
-            # Validate required fields
+            details = request.data.get('details', [])
+            selectedList = request.data.get('selectedList', [])
+
+            # Debug: Check required fields
+            print("Doctor ID:", doctor_id)
+            print("VSO ID:", vso_id)
+            print("Details:", details)
+            print("Selected List:", selectedList)
+
             if not doctor_id or not vso_id or not details or not selectedList:
                 return Response({"error": "Missing required fields."}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Validate the VSO
-            try:
-                vso = VSOPersonalDetails.objects.get(pk=vso_id)
-            except VSOPersonalDetails.DoesNotExist:
-                return Response({"detail": "VSO not found."}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Fetch the relevant doctor
+
+            # Debug: Log doctor and VSO fetching
+            print("Fetching doctor and VSO details...")
             doctor = get_object_or_404(DoctorPersonalDetails, doctor_id=doctor_id)
+            vso = get_object_or_404(VSOPersonalDetails, pk=vso_id)
 
-            # Extract only product IDs from the selectedList
+            # Debug: Extract product IDs and check unsettled credits
             product_ids = [item['product'] for item in selectedList]
+            print("Product IDs:", product_ids)
 
-            # Fetch unsettled credits matching the IDs in selectedList
             unsettled_credits = DoctorCredit.objects.filter(
                 doctor=doctor, 
                 repay_status=False, 
-                product__product_id__in=product_ids  # Filter by product IDs
+                product__product_id__in=product_ids
             ).order_by('-date_issued')
 
-            if not unsettled_credits.exists():
-                return Response({"error": "No unsettled credits found for the selected items."}, status=status.HTTP_404_NOT_FOUND)
+            print("Unsettled Credits Count:", unsettled_credits.count())
 
+            if not unsettled_credits.exists():
+                return Response({"error": "No unsettled credits found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Initialize total points and transactions
             total_points_repaid = 0
             transactions = []
+            # remaining_points = sum(credit.outstanding_points for credit in unsettled_credits)
+            # print("Remaining Points (Initial):", remaining_points)
 
-            # Initialize remaining points (assuming it's the sum of all unsettled credits' outstanding points)
-            remaining_points = sum(credit.outstanding_points for credit in unsettled_credits)
+            with transaction.atomic():
+                for item in details:
+                    product_name = item.get('product_name')
+                    points_used = item.get('points_used', 0)
+                    previous_points = item.get('previous_points', 0)
+                
 
-            # Process each product in the request's details
-            for item in details:
-                product_name = item.get('product_name')
-                previous_points = item.get('previous_points', 0)
-                quantity_redeemed = item.get('points_used', 1)
+                    # Debug: Log product and points used
+                    print("Processing Product:", product_name)
+                    print("Points Used:", points_used)
 
-                # Validate points used
-                if quantity_redeemed <= 0:
-                    return Response({"error": f"Invalid 'points_used' for product '{product_name}'."}, status=status.HTTP_400_BAD_REQUEST)
 
-                try:
-                    product = Product.objects.get(name=product_name)
-                except Product.DoesNotExist:
-                    return Response({"detail": f"Product '{product_name}' not found."}, status=status.HTTP_404_NOT_FOUND)
+                    if points_used <= 0:
+                        return Response({"error": f"Invalid points for {product_name}."}, status=status.HTTP_400_BAD_REQUEST)
 
-                # Validate available points
-                previous_coupon = Coupon.objects.filter(
-                    product=product,
-                    doctor=doctor,
-                    current_points__gt=0
-                ).order_by('-date_collected', '-time_collected').first()
+                    product = get_object_or_404(Product, name=product_name)
 
-                if not previous_coupon:
-                    return Response({
-                        "error": f"No available points for product '{product.name}'."
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    # Fetch the previous coupon
+                    print(f"Fetching previous coupon for product {product_name}...")
+                    previous_coupon = Coupon.objects.filter(
+                        product=product, doctor=doctor, current_points__gt=0
+                    ).order_by('-date_collected').first()
 
-                # Calculate current points after redeeming the product
-                current_points = previous_points - quantity_redeemed 
-                if current_points < 0:
-                    return Response({
-                        "error": f"Insufficient points for product '{product.name}'. "
-                                f"Available: {previous_coupon.product.coupon_value * quantity_redeemed}, required: {previous_points}."
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    if not previous_coupon:
+                        return Response({"error": f"No points for product {product_name}."}, status=status.HTTP_400_BAD_REQUEST)
 
-                # Create a single transaction for this product
-                transaction = Transaction.objects.create(
-                    vso=vso,
-                    doctor=doctor,
-                    total_points_used=quantity_redeemed,
-                    status='debits'
-                )
-                transactions.append(transaction)
+                    print( f"current point: {previous_coupon.current_points}" )
+                    
+                    # Calculate current points
+                    current_points = previous_points - points_used
+                    print("Current Points After Deduction:", current_points)
 
-                # Create a coupon for this product
-                new_coupon = Coupon.objects.create(
-                    product=product,
-                    doctor=doctor,
-                    vso=vso,
-                    coupon_points=quantity_redeemed,
-                    current_points=current_points,
-                    transaction=transaction,
-                    status='redeemed',
-                )
+                    if current_points < 0:
+                        return Response({"error": f"Insufficient points for {product_name}."}, status=status.HTTP_400_BAD_REQUEST)
 
-                # Process only selected unsettled credits and allocate repayment points
-                for credit in unsettled_credits:
-                    if remaining_points <= 0:
-                        break  # No more points to repay
+                    # Create transaction
+                    print("Creating transaction...")
+                    transaction_obj = Transaction.objects.create(
+                        vso=vso, doctor=doctor, total_points_used=points_used, status='debits'
+                    )
+                    transactions.append(transaction_obj)
 
-                    # Ensure we don't exceed the outstanding points for this credit
-                    repay_points = min(credit.outstanding_points, quantity_redeemed * previous_coupon.product.coupon_value)
-
-                    # Create CreditRepayment and CreditRepaymentDetail records
-                    repayment = CreditRepayment.objects.create(credit=credit, transaction=transaction)
-                    CreditRepaymentDetail.objects.create(
-                        repayment=repayment,
-                        product=product,
-                        coupon=new_coupon,
-                        points_repaid=repay_points
+                    # Create coupon
+                    print("Creating new coupon entry...")
+                    new_coupon = Coupon.objects.create(
+                        product=product, doctor=doctor, vso=vso,
+                        coupon_points=points_used, current_points=current_points,
+                        transaction=transaction_obj, status='redeemed'
                     )
 
-                    # Update credit details
-                    credit.repaid_points += repay_points
-                    if credit.outstanding_points == 0:
-                        credit.repay_status = True
-                        credit.date_repaid = transaction.date_transaction
-                    credit.save()
+                    # Process unsettled credits while deducting points
+                    remaining_points = points_used* previous_coupon.product.coupon_value
 
-                    # Update remaining points and total points repaid
-                    remaining_points -= repay_points
-                    total_points_repaid += repay_points
+                    # Process unsettled credits
+                    for credit in unsettled_credits:
+                        if remaining_points <= 0:
+                            print("No remaining points to process.")
+                            break
 
-                # After processing, if remaining points are still positive, it means the repayment was not complete
+                        repay_points = min(credit.outstanding_points, remaining_points)
+                        print("Repaying Points:", repay_points)
+
+                        
+
+                        repayment = CreditRepayment.objects.create(
+                            credit=credit, transaction=transaction_obj
+                        )
+                        CreditRepaymentDetail.objects.create(
+                            repayment=repayment, product=product, coupon=new_coupon,
+                            points_repaid=repay_points
+                        )
+
+                        # Update credit fields
+                        credit.repaid_points += repay_points
+                        credit.outstanding_points -= repay_points
+                        if(credit.outstanding_points == 0):
+                            credit.repay_status = True
+                            credit.date_repaid = transaction_obj.date_transaction
+                        credit.save()
+
+                        remaining_points -= repay_points
+                        total_points_repaid += repay_points
+                        print("Updated Remaining Points:", remaining_points)
+
+                 # After processing, if remaining points are still positive, it means the repayment was not complete
                 transaction_data = [{"transaction_id": txn.transaction_id, "points_used": txn.total_points_used} for txn in transactions]
             
                 if remaining_points > 0:
@@ -869,10 +902,6 @@ class CreditsAPIView(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-
     
     
 class GiftSettledAPIViewSet(APIView):
@@ -1017,8 +1046,13 @@ class CouponRedeemViewSet(viewsets.ModelViewSet):
 
             if(settled_product.name!="Gift Product"):
                     # Get the VSOProductStock record for the specific VSO and product
-                    vso_product_stock = VSOProductStock.objects.get(vso_id=vso_id, product_id=product_id_settled)
+                    try:
+                        vso_product_stock = VSOProductStock.objects.get(vso_id=vso_id, product_id=product_id_settled)
 
+                    except:
+                        return Response({"Error": f"Available products 0 and required products {quantity}"}, status=status.HTTP_400_BAD_REQUEST)
+
+                    
                     # Check if there is enough stock to redeem
                     if vso_product_stock.current_stock < quantity:
                         return Response({"Error": f"Available products {vso_product_stock.current_stock} and required products {quantity}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1050,15 +1084,8 @@ class CouponRedeemViewSet(viewsets.ModelViewSet):
                         status=status_
                 )
             
-            bonus_points_for_product = settled_product.bonus_points  # Example field for product bonus points
-
-            # 1. Update or create bonus record for the manager of the VSO
-            manager = vso.manager
-            bonus_record, created = BonusRecords.objects.get_or_create(manager=manager)
-
-            # Update the bonus points in the record
-            bonus_record.current_bonus_points += bonus_points_for_product
-            bonus_record.save()
+            
+            
 
 
             # Process each product in details
@@ -1137,6 +1164,8 @@ class CouponRedeemViewSet(viewsets.ModelViewSet):
                             doctor=doctor,
                             product=product,
                             borrowed_points=abs(credit_points),
+                            outstanding_points=abs(credit_points),
+
                 )
                 
 
@@ -1274,17 +1303,20 @@ class VSOManagerAnalysisAPIView(APIView):
                 for call in call_days
             ]
 
-            # Calculate bonus points based on redeemed products
+            # Calculate bonus points based on collected products
             bonus_points = (
                 TransactionDetail.objects.filter(
                     transaction__vso_id=vso['vso_id'],
-                    transaction__status="redeemed",
+                    transaction__status="collected",  # Change status to 'collected'
                     transaction__date_transaction__range=[first_date, last_date],
-                    
                 )
-                .annotate(bonus=F('quantity_redeemed') * F('product__bonus_points'))
-                .aggregate(total_bonus=Sum('bonus'))['total_bonus'] or 0
+                .annotate(bonus=F('points_used') * F('product__bonus_points'))  # Use quantity_collected
+                .aggregate(total_bonus=Sum('bonus'))['total_bonus'] or 0  # Sum the calculated bonuses
             )
+
+
+
+        
 
             current_bonus_points=(
                 BonusRecords.objects.filter(
