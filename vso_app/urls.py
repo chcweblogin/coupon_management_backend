@@ -105,10 +105,9 @@ urlpatterns = [
     
     # Doctor Routes
     path('doctors/', DoctorListCreate.as_view(), name='doctor-list-create'),
-    path('doctors/<str:id>/', DoctorDetail.as_view(), name='doctor-detail'),
+    path('doctors/<str:doctor_id>/', DoctorDetail.as_view(), name='doctor-detail'),
     path('search-doctor/', VSOSearchAPIView.as_view(), name='vso-search-doctor'),
     path('create-doctor-profile/', DoctorListCreate.as_view(), name='create-doctor-profile'),
-    path('doctor/<str:doctor_id>/update/', DoctorDetail.as_view(), name='update_doctor_profile'),
 
     path('doctor-last-vist/', DoctorLastUpdate.as_view(), name='doctor-last-vist'),
     
