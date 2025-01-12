@@ -1,10 +1,5 @@
 from datetime import datetime
-from itertools import count
-from django.shortcuts import render
 from django.utils import timezone
-from django.db.models import Q
-import json
-from django.db.models import Max
 from django.db import transaction
 from django.conf import settings
 from django.shortcuts import get_object_or_404, render
@@ -20,16 +15,13 @@ from rest_framework.permissions import AllowAny
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
-from django.db.models import Subquery, OuterRef, Max, F
+from django.db.models import Subquery, OuterRef,  F
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.exceptions import NotFound
 from django.contrib.auth import logout
 from django.db import transaction as db_transaction
 from manager_app.models import ManagerPersonalDetails
@@ -212,29 +204,23 @@ class DoctorListCreate(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
+
+
 class DoctorDetail(APIView):
     permission_classes = [IsAuthenticated]
-    
-    def get(self, request, id):
-        doctor = DoctorPersonalDetails.objects.get(doctor_id=id)
+
+    def get(self, request, doctor_id):
+        doctor = DoctorPersonalDetails.objects.get(doctor_id=doctor_id)
         serializer = DoctorSerializer(doctor)
         return Response(serializer.data)
 
-    
-    def put(self, request, doctor_id):
-        doctor = DoctorPersonalDetails.objects.get(doctor_id=doctor_id)
-        serializer = DoctorSerializer(doctor, data=request.data,partial=True)
+    def patch(self, request, doctor_id=None):
+        doctor = get_object_or_404(DoctorPersonalDetails, doctor_id=doctor_id)
+        serializer = DoctorSerializer(doctor, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, id):
-        doctor = DoctorPersonalDetails.objects.get(id=id)
-        doctor.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
-
 
 class UserPersonalInfoView(APIView):
     def get(self, request):
@@ -1611,6 +1597,7 @@ class VSOMonthPerformanceAPIView(APIView):
         return Response(analysis_data, status=status.HTTP_200_OK)
 
 
+
 class DoctorLastUpdate(APIView):
     
     def get(self, request):
@@ -1654,6 +1641,13 @@ class DoctorLastUpdate(APIView):
             repayment__date_repaid=latest_date  # Filter by settlement date through the repayment relationship
         ).aggregate(total_points_repaid=Sum('points_repaid'))['total_points_repaid'] or 0
 
+        # Filter DoctorCredit entries for the given doctor where repay_status is False
+        queryset = DoctorCredit.objects.filter(doctor=doctor_id, repay_status=False).order_by("-date_issued")
+
+        # Calculate total credit
+        total_credit = queryset.aggregate(total_credit=Sum('outstanding_points'))['total_credit'] or 0
+
+
 
 
 
@@ -1685,6 +1679,7 @@ class DoctorLastUpdate(APIView):
             'vso_id': latest_coupon.vso.vso_id,
             'vso_name': latest_coupon.vso.name,
             'vso_contact': latest_coupon.vso.contact_no,
+            'total_credit':total_credit,
             
             'latest_coupon': {
                 'date_collected': latest_date,
@@ -1699,6 +1694,13 @@ class DoctorLastUpdate(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
     
+
+
+
+
+
+
+
 
 class SettledStockAPIView(APIView):
     """
@@ -1826,3 +1828,5 @@ class BonusSettlementView(APIView):
         # Serialize the queryset and return the response
         serializer = BonusSettlementSerializer(queryset_, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
