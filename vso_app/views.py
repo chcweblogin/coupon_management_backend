@@ -1696,11 +1696,73 @@ class DoctorLastUpdate(APIView):
     
 
 
+class DoctorLastVisitSettlements(APIView):
+
+    def get(self, request):
+        # Retrieve query parameters
+        doctor_id = request.query_params.get('doctor_id')
+        product_type = request.query_params.get('type')  # Expected values: "settled" or "sampled"
+
+        # Validate doctor_id
+        if not doctor_id:
+            return Response(
+                {"error": "doctor_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate product_type
+        if product_type not in ["settled", "sampled"]:
+            return Response(
+                {"error": "Invalid type parameter. Expected 'settled' or 'sampled'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Get the last settlement for the doctor
+            last_settlement = Settlement.objects.filter(
+                doctor_id=doctor_id
+            ).order_by("-date_settled", "-time_settled").first()
+
+            # If no settlement is found, return a not-found response
+            if not last_settlement:
+                return Response(
+                    {"message": "No settlements found for the doctor."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Filter products based on type (settled or sampled)
+            transaction_details = Settlement.objects.filter(
+                doctor=doctor_id,
+                date_settled=last_settlement.date_settled,
+                transaction__status=product_type  # Use product_type here
+            ).select_related('product').values(
+                'product__name', 
+                'product__coupon_value'
+            ).annotate(
+                quantity_collected=Sum('quantity'),
+                total_collected_value=Sum('points_settled_value')
+            )
+
+            # Prepare product data from the filtered transaction details
+            product_data = [
+                {
+                    "product_name": td['product__name'],
+                    "quantity_used": int(td['quantity_collected']),
+                }
+                for td in transaction_details
+            ]
 
 
+            
 
+            return Response(product_data, status=status.HTTP_200_OK)
 
-
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
 
 class SettledStockAPIView(APIView):
     """

@@ -6,6 +6,7 @@ from .views import (
     CreditsAPIView,
     CurrentStockAPIView,
     DoctorLastUpdate,
+    DoctorLastVisitSettlements,
     FreeSamplesByDoctorAPIViewSet,
     GiftSettledAPIViewSet,
     RedeemProductByDoctorAPIView,
@@ -110,6 +111,8 @@ urlpatterns = [
     path('create-doctor-profile/', DoctorListCreate.as_view(), name='create-doctor-profile'),
 
     path('doctor-last-vist/', DoctorLastUpdate.as_view(), name='doctor-last-vist'),
+    path('doctor-last-vist-products/', DoctorLastVisitSettlements.as_view(), name='doctor-last-vist-products'),
+
     
 
 
