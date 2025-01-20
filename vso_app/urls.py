@@ -9,6 +9,7 @@ from .views import (
     DoctorLastVisitSettlements,
     FreeSamplesByDoctorAPIViewSet,
     GiftSettledAPIViewSet,
+    ManagerContact,
     RedeemProductByDoctorAPIView,
     RedeemableProductsView,
     RegisterView,
@@ -105,6 +106,7 @@ urlpatterns = [
     path('api/user-info/', UserPersonalInfoView.as_view(), name='user-info'),
     
     # Doctor Routes
+    path('doctors-manager-contact/', ManagerContact.as_view(), name='doctors-manager-contact'),
     path('doctors/', DoctorListCreate.as_view(), name='doctor-list-create'),
     path('doctors/<str:doctor_id>/', DoctorDetail.as_view(), name='doctor-detail'),
     path('search-doctor/', VSOSearchAPIView.as_view(), name='vso-search-doctor'),

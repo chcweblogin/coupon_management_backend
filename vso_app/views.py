@@ -202,8 +202,38 @@ class DoctorListCreate(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
+
+# Create your views here.
+class ManagerContact(APIView):
+    
+    def get(self, request):
+        # Get the VSO ID from the query parameters
+        vso_id = request.query_params.get('vsoID')
+        print(vso_id)
+
+        if not vso_id:
+            return Response({"error": "vsoID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Fetch the VSO object
+            vso = VSOPersonalDetails.objects.get(vso_id=vso_id) if vso_id else None
+
+            # Fetch the Manager object using the 'as_manager' field from the VSO object
+            manager = ManagerPersonalDetails.objects.get(manager_id=vso.manager.manager_id)
+
+            # Return the manager's contact number
+            return Response({"contact_number": manager.contact_no}, status=status.HTTP_200_OK)
+
+        except VSOPersonalDetails.DoesNotExist:
+            return Response({"error": "VSO not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except ManagerPersonalDetails.DoesNotExist:
+            return Response({"error": "Manager not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 
 
 class DoctorDetail(APIView):
