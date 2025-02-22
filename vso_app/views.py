@@ -1331,9 +1331,6 @@ class VSOManagerAnalysisAPIView(APIView):
             )
 
 
-
-        
-
             current_bonus_points=(
                 BonusRecords.objects.filter(
                     manager_id=manager_id
@@ -1741,9 +1738,9 @@ class DoctorLastVisitSettlements(APIView):
             )
 
         # Validate product_type
-        if product_type not in ["settled", "sampled"]:
+        if product_type not in ["redeemed", "sampled"]:
             return Response(
-                {"error": "Invalid type parameter. Expected 'settled' or 'sampled'."},
+                {"error": "Invalid type parameter. Expected 'redeemed' or 'sampled'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -1772,6 +1769,7 @@ class DoctorLastVisitSettlements(APIView):
                 quantity_collected=Sum('quantity'),
                 total_collected_value=Sum('points_settled_value')
             )
+
 
             # Prepare product data from the filtered transaction details
             product_data = [
