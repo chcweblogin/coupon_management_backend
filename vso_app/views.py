@@ -1689,14 +1689,15 @@ class DoctorLastUpdate(APIView):
             latest_coupons_subquery = Coupon.objects.filter(
                     product_id=OuterRef('product_id'),
                     doctor_id=doctor_id,
-                    date_collected=previous_date,  # Filter for the specific date
+                    date_collected__lte=previous_date,  # Filter for the specific date
                 ).order_by('-date_collected', '-time_collected').values('coupon_id')[:1]
+            
                 
                 # Query to filter latest coupons and calculate the total coupon value
             total_coupons_value = Coupon.objects.filter(
                     coupon_id__in=Subquery(latest_coupons_subquery),
                     current_points__gt=0,
-                    date_collected=previous_date,
+                    date_collected__lte=previous_date,
                 ).aggregate(
                     total_value=Sum(F('current_points') * F('product__coupon_value'))
                 )['total_value'] or 0
