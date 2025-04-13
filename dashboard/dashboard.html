@@ -111,6 +111,16 @@
     document.getElementById("startDate").value = today;
     document.getElementById("endDate").value = today;
 
+    function generateColorPalette(count) {
+      const colors = [];
+      const hueStep = 360 / count;
+      for (let i = 0; i < count; i++) {
+        const hue = i * hueStep;
+        colors.push(`hsl(${hue}, 70%, 60%)`);
+      }
+      return colors;
+    }
+
     async function loadDashboard() {
       const start = document.getElementById('startDate').value;
       const end = document.getElementById('endDate').value;
@@ -143,14 +153,17 @@
       });
 
       // Pie Chart
+      
+      const productLabels = data.product_stats.map(item => item.product__name);
       const pieCtx = document.getElementById('productPieChart').getContext('2d');
+      const productColors = generateColorPalette(productLabels.length);
       pieChart = new Chart(pieCtx, {
         type: 'pie',
         data: {
           labels: data.product_stats.map(item => item.product__name),
           datasets: [{
             data: data.product_stats.map(item => item.coupons),
-            backgroundColor: ['#3498db', '#f1c40f', '#e67e22', '#2ecc71', '#9b59b6', '#e74c3c']
+            backgroundColor: productColors
           }]
         },
         options: {
