@@ -225,6 +225,7 @@ JAZZMIN_SETTINGS = {
 
     # Side Menu Configuration
     "topmenu_links": [
+        {"name": "Dashboard Analysis", "url": "/Manager/report/", "permissions": ["auth.view_user"], "new_window": False},
         # Master Menu
         {
             "label": "Master",
