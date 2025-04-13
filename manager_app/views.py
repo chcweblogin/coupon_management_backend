@@ -1,18 +1,127 @@
 # views.py
 from datetime import datetime
+from django.http import JsonResponse
+from django.views import View
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
 from django.contrib.auth.models import User
-from vso_app.models import DoctorPersonalDetails, Settlement, Transaction, TransactionDetail, VSOPersonalDetails
+from vso_app.models import Coupon, DoctorPersonalDetails, Settlement, Transaction, TransactionDetail, VSOPersonalDetails
 from vso_app.serializers import DoctorSerializer, VSOPersonalDetailsSerializer, VSOSerializer
 from .models import ManagerPersonalDetails
 from .serializers import ManagerPersonalDetailsSerializer
 from django.db.models import Sum, Count
 from rest_framework.exceptions import NotFound
+from django.utils.timezone import now
+from django.views.generic import TemplateView
 
 
+#dashboard
+class DashboardView(TemplateView):
+    template_name = 'dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        return context
+    
+class VSODashboardAPIView(View):
+    def get(self, request):
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+
+        # If dates not provided, default to today's date
+        if not start_date or not end_date:
+            today = now().date()
+            start_date = end_date = str(today)
+
+        # Filtered data
+        coupons = Coupon.objects.filter(date_collected__range=[start_date, end_date],status='collected'
+        )
+        transactions = Transaction.objects.filter(date_transaction__range=[start_date, end_date],status='redeemed'
+        )
+        doctors = DoctorPersonalDetails.objects.all()
+        vsos = VSOPersonalDetails.objects.all()
+
+
+        vso_stats = coupons.values('vso__name').annotate(coupons=Sum('coupon_points'))
+          # Convert queryset to list for JSON serialization
+
+        product_stats = coupons.values('product__name').annotate(coupons=Sum('coupon_points'))
+        
+        
+        # Get all VSOs
+        vsos = VSOPersonalDetails.objects.all()
+
+        # Final result list
+        vso_summary = []
+
+        for vso in vsos:
+            # 1. Get all transactions done by this VSO in date range
+            vso_transactions = Transaction.objects.filter(
+                vso=vso.vso_id,
+                date_transaction__range=(start_date, end_date),
+
+            ).values('doctor_id', 'date_transaction').distinct()
+
+            # 2. Count distinct call days per doctor
+            doctor_calls = (
+                vso_transactions.values('doctor_id')
+                .annotate(total_call_days=Count('date_transaction', distinct=True))
+            )
+
+            # 3. Total calls = sum of call days across doctors
+            total_calls = sum([item['total_call_days'] for item in doctor_calls])
+
+            # 4. Total coupons collected by this VSO in date range
+            total_coupons = Coupon.objects.filter(
+                vso=vso.vso_id,
+                date_collected__range=(start_date, end_date)
+                ,status='collected'
+        
+            ).aggregate(total=Sum('coupon_points'))['total'] or 0
+
+            # 5. Format doctors' call data
+            doctors_data = [
+                
+                {
+                    'doctor_name': DoctorPersonalDetails.objects.get(doctor_id=entry['doctor_id']).name,
+                    'call_count': entry['total_call_days']
+                }
+                for entry in doctor_calls
+            ]
+
+            # 6. Append to final list
+            vso_summary.append({
+                'vso_name': vso.name,
+                'coupons': total_coupons,
+                'calls': total_calls,
+                'doctors': doctors_data
+            })
+
+        
+        data = {
+            'total_coupons': coupons.aggregate(total=Sum('coupon_points'))['total'] or 0,
+            'points_redeemed': transactions.aggregate(total=Sum('total_points_used'))['total'] or 0,
+            'doctor_count': doctors.count(),
+            'vso_count': vsos.count(),
+            'start_date': start_date,
+            'end_date': end_date,
+            'vso_stats': list(vso_stats),
+
+  'product_stats':list(product_stats),
+
+        'vso_coverage': vso_summary
+        }
+
+        #VSO-wise coupon collection stats
+        
+
+
+        
+
+        return JsonResponse(data)
 
 # Create your views here.
 class ManagerProfileAPIView(APIView):

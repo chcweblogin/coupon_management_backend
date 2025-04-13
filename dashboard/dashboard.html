@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coupon Management Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+  <div class="flex h-screen">
+    <!-- Sidebar -->
+    <div class="w-64 bg-blue-800 text-white p-6">
+      <h2 class="text-2xl font-bold mb-6">Coupon System</h2>
+      <nav class="space-y-3" id="sidebar">
+        <a href="#" data-target="Dashboard" class="block hover:text-yellow-300 text-yellow-300">Dashboard</a>
+        <a href="#" data-target="coustomer_coverage" class="block hover:text-yellow-300">Customer Coverage</a>
+        <a href="#" data-target="Transactions" class="block hover:text-yellow-300">Transactions</a>
+        <a href="#" data-target="Doctors" class="block hover:text-yellow-300">Doctors</a>
+        <a href="#" data-target="Reports" class="block hover:text-yellow-300">Reports</a>
+      </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h1 class="text-2xl font-bold">Dashboard Overview</h1>
+        <div>
+          <input type="date" id="startDate" class="p-1 border rounded" />
+          <input type="date" id="endDate" class="p-1 border rounded" />
+          <button onclick="loadDashboard()" class="bg-blue-600 text-white px-3 py-1 rounded">Filter</button>
+        </div>
+      </div>
+
+      <!-- Page Sections -->
+      <div id="Dashboard" class="page-section">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white p-4 rounded shadow">
+            <h2 class="text-lg">Total Coupons</h2>
+            <p class="text-2xl font-bold" id="totalCoupons">0</p>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h2 class="text-lg">Points Redeemed</h2>
+            <p class="text-2xl font-bold" id="pointsRedeemed">0</p>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h2 class="text-lg">Doctors</h2>
+            <p class="text-2xl font-bold" id="doctorCount">0</p>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h2 class="text-lg">VSOs</h2>
+            <p class="text-2xl font-bold" id="vsoCount">0</p>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow mb-6">
+          <canvas id="couponChart" height="100"></canvas>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow mb-3">
+          <canvas id="productPieChart" height="200"></canvas>
+        </div>
+      </div>
+
+      <div id="coustomer_coverage" class="page-section hidden">
+        <h2 class="text-xl font-bold mb-4">Customer Coverage</h2>
+        <table class="min-w-full bg-white rounded shadow mb-6">
+          <thead>
+            <tr class="bg-blue-800 text-white">
+              <th class="py-2 px-4 text-left">VSO Name</th>
+              <th class="py-2 px-4 text-left">Coupons Collected</th>
+              <th class="py-2 px-4 text-left">Calls Made</th>
+              <th class="py-2 px-4 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody id="coverageTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="Transactions" class="page-section hidden">
+        <h2 class="text-xl font-semibold mb-4">Transactions</h2>
+        <p>Placeholder for Transactions content.</p>
+      </div>
+
+      <div id="Doctors" class="page-section hidden">
+        <h2 class="text-xl font-semibold mb-4">Doctors</h2>
+        <p>Placeholder for Doctors content.</p>
+      </div>
+
+      <div id="Reports" class="page-section hidden">
+        <h2 class="text-xl font-semibold mb-4">Reports</h2>
+        <p>Placeholder for Reports content.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="coverageModal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg w-96 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-xl font-bold mb-4">Doctor Calls</h2>
+      <ul id="modalDoctorList" class="space-y-2"></ul>
+      <button onclick="closeCoverageModal()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Close</button>
+    </div>
+  </div>
+
+  <script>
+    let globalData = {};
+    let barChart, pieChart;
+
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("startDate").value = today;
+    document.getElementById("endDate").value = today;
+
+    async function loadDashboard() {
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+
+      const res = await fetch(`dashboard?start_date=${start}&end_date=${end}`);
+      const data = await res.json();
+      globalData = data;
+
+      document.getElementById('totalCoupons').textContent = data.total_coupons;
+      document.getElementById('pointsRedeemed').textContent = data.points_redeemed;
+      document.getElementById('doctorCount').textContent = data.doctor_count;
+      document.getElementById('vsoCount').textContent = data.vso_count;
+
+      // Destroy existing charts to avoid duplicates
+      if (barChart) barChart.destroy();
+      if (pieChart) pieChart.destroy();
+
+      // Bar Chart
+      const ctx = document.getElementById('couponChart').getContext('2d');
+      barChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.vso_stats.map(item => item.vso__name),
+          datasets: [{
+            label: 'Coupons Collected',
+            data: data.vso_stats.map(item => item.coupons),
+            backgroundColor: '#3498db'
+          }]
+        }
+      });
+
+      // Pie Chart
+      const pieCtx = document.getElementById('productPieChart').getContext('2d');
+      pieChart = new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: data.product_stats.map(item => item.product__name),
+          datasets: [{
+            data: data.product_stats.map(item => item.coupons),
+            backgroundColor: ['#3498db', '#f1c40f', '#e67e22', '#2ecc71', '#9b59b6', '#e74c3c']
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'right' },
+            title: { display: true, text: 'Product-wise Coupon Collections' }
+          }
+        }
+      });
+
+      // Customer Coverage Table
+      const tableBody = document.getElementById('coverageTableBody');
+      tableBody.innerHTML = '';
+      data.vso_coverage.forEach((vso, index) => {
+        const row = `
+          <tr class="border-t">
+            <td class="py-2 px-4">${vso.vso_name}</td>
+            <td class="py-2 px-4">${vso.coupons}</td>
+            <td class="py-2 px-4">${vso.calls}</td>
+            <td class="py-2 px-4">
+              <button onclick="openCoverageModal(${index})" class="text-blue-600 hover:underline">View More</button>
+            </td>
+          </tr>
+        `;
+        tableBody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    function openCoverageModal(index) {
+      const doctorList = globalData.vso_coverage[index].doctors;
+      const modalList = document.getElementById('modalDoctorList');
+      modalList.innerHTML = '';
+      doctorList.forEach(doc => {
+        const item = `<li><strong>${doc.doctor_name}</strong>: ${doc.call_count} call(s)</li>`;
+        modalList.insertAdjacentHTML('beforeend', item);
+      });
+      document.getElementById('coverageModal').classList.remove('hidden');
+    }
+
+    function closeCoverageModal() {
+      document.getElementById('coverageModal').classList.add('hidden');
+    }
+
+    // SPA Navigation
+    const links = document.querySelectorAll('#sidebar a');
+    const sections = document.querySelectorAll('.page-section');
+
+    links.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = link.getAttribute('data-target');
+        sections.forEach(section => section.classList.add('hidden'));
+        document.getElementById(target).classList.remove('hidden');
+
+        links.forEach(l => l.classList.remove('text-yellow-300'));
+        link.classList.add('text-yellow-300');
+      });
+    });
+
+    window.onload = loadDashboard;
+  </script>
+</body>
+</html>
