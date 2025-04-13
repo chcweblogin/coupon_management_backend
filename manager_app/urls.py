@@ -1,9 +1,14 @@
 # urls.py
 from django.urls import path
-from .views import DoctorsUnderVSO, ManagerAnalysisAPIView, ManagerProfileAPIView,VSOAndDoctorFilterView
+from .views import DashboardView, DoctorsUnderVSO, ManagerAnalysisAPIView, ManagerProfileAPIView,VSOAndDoctorFilterView, VSODashboardAPIView
 
 
 urlpatterns = [
+
+    #dashboards
+    path('report/', DashboardView.as_view(), name='dashboard'),
+    path('report/dashboard', VSODashboardAPIView.as_view(), name='dashboard'),
+
     path('create-manager-profile/', ManagerProfileAPIView.as_view(), name='manager-list-create'),  # List all or create new
     path('manager/<str:manager_id>/update/', ManagerProfileAPIView.as_view(), name='update_manager_profile'),
     
