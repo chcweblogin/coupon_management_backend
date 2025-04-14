@@ -15,10 +15,13 @@ from django.db.models import Sum, Count
 from rest_framework.exceptions import NotFound
 from django.utils.timezone import now
 from django.views.generic import TemplateView
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.mixins import LoginRequiredMixin
+
 
 
 #dashboard
-class DashboardView(TemplateView):
+class DashboardView(LoginRequiredMixin,TemplateView):
     template_name = 'dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -26,7 +29,7 @@ class DashboardView(TemplateView):
 
         return context
     
-class VSODashboardAPIView(View):
+class VSODashboardAPIView(LoginRequiredMixin,View):
     def get(self, request):
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
